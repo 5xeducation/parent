@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>5X Education · Mentor Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg:#f0f7fa;--bg2:#e2eef5;--bg3:#d4e5f0;
+    --border:#b8d4e4;--muted:#5a8aaa;--dim:#2a4a60;--ink:#0d1f35;
+    --green:#0a9a78;--green-bg:rgba(10,154,120,.08);--green-border:rgba(10,154,120,.2);
+    --red:#cc3333;--red-bg:rgba(200,50,50,.06);--red-border:rgba(200,50,50,.18);
+    --amber:#a07010;--amber-bg:rgba(160,112,16,.08);--amber-border:rgba(160,112,16,.2);
+    --purple:#5b3fc4;--purple-bg:rgba(91,63,196,.06);--purple-border:rgba(91,63,196,.18);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html{background:#c8dce8;min-height:100%;}
+  body{font-family:'Inter',sans-serif;display:flex;align-items:flex-start;justify-content:center;min-height:100vh;padding:24px;}
+  #frame{width:100%;max-width:960px;background:var(--bg);border-radius:18px;border:3px solid var(--ink);box-shadow:0 12px 60px rgba(13,31,53,.2);-webkit-mask-image:-webkit-radial-gradient(white,black);transform:translateZ(0);}
+  #topbar{background:var(--ink);padding:0 28px;height:58px;display:flex;align-items:center;justify-content:space-between;border-radius:15px 15px 0 0;}
+  .logo{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:.12em;color:#e8f4f8;}
+  .logo span{color:#5de8c0;}
+  .topbar-right{display:flex;align-items:center;gap:14px;}
+  .user-email{font-family:'IBM Plex Mono',monospace;font-size:11px;color:#4a7a9a;}
+  .btn-signout{font-family:'IBM Plex Mono',monospace;font-size:11px;padding:6px 14px;background:transparent;color:#4a7a9a;border:1px solid #1e3a5f;border-radius:6px;cursor:pointer;transition:color .15s;}
+  .btn-signout:hover{color:#e8f4f8;}
+  #main{padding:36px 32px 60px;}
+
+  /* AUTH */
+  .auth-wrap{max-width:420px;margin:0 auto;padding:40px 0;}
+  .auth-eyebrow{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--green);letter-spacing:.1em;text-transform:uppercase;margin-bottom:10px;}
+  .auth-title{font-family:'Bebas Neue',sans-serif;font-size:42px;color:var(--ink);margin-bottom:6px;}
+  .auth-sub{font-size:14px;color:var(--muted);font-weight:300;margin-bottom:32px;}
+  .field{margin-bottom:16px;}
+  .field label{display:block;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;}
+  .field input{width:100%;padding:12px 14px;background:white;border:1px solid var(--border);border-radius:8px;font-family:'Inter',sans-serif;font-size:14px;color:var(--ink);transition:border-color .15s;}
+  .field input:focus{outline:none;border-color:var(--green);}
+  .btn-primary{width:100%;padding:13px;background:var(--ink);color:#e8f4f8;border:none;border-radius:8px;font-family:'IBM Plex Mono',monospace;font-size:13px;letter-spacing:.08em;cursor:pointer;transition:opacity .15s;}
+  .btn-primary:hover{opacity:.85;}
+  .btn-primary:disabled{opacity:.4;cursor:default;}
+  .auth-toggle{text-align:center;margin-top:16px;font-size:13px;color:var(--muted);}
+  .auth-toggle a{color:var(--green);cursor:pointer;text-decoration:underline;}
+  .auth-msg{padding:10px 14px;border-radius:7px;font-size:13px;margin-bottom:16px;display:none;}
+  .auth-msg.error{background:var(--red-bg);border:1px solid var(--red-border);color:var(--red);}
+  .auth-msg.success{background:var(--green-bg);border:1px solid var(--green-border);color:var(--green);}
+
+  /* DASHBOARD */
+  .dash-header{margin-bottom:28px;}
+  .dash-eyebrow{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--green);letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px;}
+  .dash-title{font-family:'Bebas Neue',sans-serif;font-size:42px;color:var(--ink);line-height:1;}
+  .dash-sub{font-size:14px;color:var(--muted);font-weight:300;margin-top:4px;}
+  .no-students{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:32px;text-align:center;color:var(--muted);font-size:14px;font-weight:300;}
+
+  /* COHORT SUMMARY BAR */
+  .cohort-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:28px;}
+  .cohort-stat{background:white;border:1px solid var(--border);border-radius:12px;padding:16px 18px;}
+  .cohort-stat-val{font-family:'Bebas Neue',sans-serif;font-size:32px;color:var(--ink);}
+  .cohort-stat-val.green{color:var(--green);}
+  .cohort-stat-val.amber{color:var(--amber);}
+  .cohort-stat-val.red{color:var(--red);}
+  .cohort-stat-key{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-top:3px;}
+
+  /* AI OVERVIEW */
+  .ai-overview-wrap{background:white;border:1px solid var(--purple-border);border-radius:14px;padding:20px 22px;margin-bottom:28px;}
+  .ai-overview-label{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--purple);letter-spacing:.1em;text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:8px;}
+  .ai-overview-label::after{content:'';flex:1;height:1px;background:var(--purple-border);}
+  .ai-overview-text{font-size:14px;color:var(--dim);line-height:1.7;font-style:italic;}
+  .ai-overview-loading{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:10px;}
+
+  /* STUDENT CARD */
+  .student-card{background:white;border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:20px;}
+  .student-card-header{padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--bg2);}
+  .student-name{font-size:17px;font-weight:500;color:var(--ink);}
+  .student-email-el{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);margin-top:2px;}
+  .traffic-light{display:flex;align-items:center;gap:8px;}
+  .tl-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0;}
+  .tl-label{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.06em;}
+  .tl-green{background:var(--green);}
+  .tl-amber{background:#d4920a;}
+  .tl-red{background:var(--red);}
+  .student-card-body{padding:20px 22px;}
+
+  /* SUBJECT ROW */
+  .subject-row{margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid var(--border);}
+  .subject-row:last-child{margin-bottom:0;padding-bottom:0;border-bottom:none;}
+  .subject-name{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:12px;}
+  .subject-stats{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:12px;}
+  .subject-stat{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center;}
+  .subject-stat-val{font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--ink);}
+  .subject-stat-val.green{color:var(--green);}
+  .subject-stat-val.amber{color:var(--amber);}
+  .subject-stat-val.red{color:var(--red);}
+  .subject-stat-key{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-top:2px;}
+
+  /* DELTA */
+  .delta-positive{color:var(--green);}
+  .delta-negative{color:var(--red);}
+  .delta-neutral{color:var(--muted);}
+
+  /* PROGRESS BAR */
+  .prog-wrap{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+  .prog-track{flex:1;height:4px;background:var(--border);border-radius:2px;overflow:hidden;}
+  .prog-fill{height:100%;background:var(--green);border-radius:2px;transition:width .4s ease;}
+  .prog-label{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);min-width:30px;text-align:right;}
+
+  /* CONCEPT TABLE */
+  .concept-table{width:100%;border-collapse:collapse;margin-bottom:12px;font-size:12px;}
+  .concept-table th{font-family:'IBM Plex Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);text-align:left;padding:5px 8px;border-bottom:1px solid var(--border);}
+  .concept-table td{padding:7px 8px;border-bottom:1px solid var(--bg3);vertical-align:middle;}
+  .concept-table tr:last-child td{border-bottom:none;}
+  .concept-name-cell{color:var(--dim);font-weight:500;}
+  .score-cell{font-family:'IBM Plex Mono',monospace;font-size:11px;}
+  .flag-badge{display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:9px;padding:2px 8px;border-radius:20px;background:var(--red-bg);color:var(--red);border:1px solid var(--red-border);}
+  .ok-badge{display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:9px;padding:2px 8px;border-radius:20px;background:var(--green-bg);color:var(--green);border:1px solid var(--green-border);}
+  .pending-badge{display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:9px;padding:2px 8px;border-radius:20px;background:var(--bg2);color:var(--muted);border:1px solid var(--border);}
+
+  /* AI SUMMARY */
+  .ai-summary{padding:12px 14px;background:var(--purple-bg);border:1px solid var(--purple-border);border-radius:8px;font-size:13px;color:var(--dim);line-height:1.6;font-style:italic;}
+  .ai-summary-loading{padding:12px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;font-size:13px;color:var(--muted);}
+
+  .spinner{width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--green);border-radius:50%;animation:spin .8s linear infinite;display:inline-block;vertical-align:middle;}
+
+  /* TABS */
+  .dash-tabs{display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:24px;}
+  .dash-tab{font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.06em;padding:10px 20px;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-2px;transition:color .15s,border-color .15s;}
+  .dash-tab:hover{color:var(--ink);}
+  .dash-tab.active{color:var(--ink);border-bottom-color:var(--ink);}
+  .msg-badge-tab{background:var(--red);color:white;font-size:9px;font-family:'IBM Plex Mono',monospace;padding:1px 6px;border-radius:20px;margin-left:6px;display:none;}
+
+  /* MESSAGES */
+  .messages-layout{display:grid;grid-template-columns:240px 1fr;gap:0;background:white;border:1px solid var(--border);border-radius:14px;overflow:hidden;height:calc(100vh - 340px);min-height:400px;}
+  .msg-sidebar{border-right:1px solid var(--border);overflow-y:auto;}
+  .msg-sidebar-head{padding:14px 16px;border-bottom:1px solid var(--border);}
+  .msg-sidebar-title{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink);letter-spacing:.06em;text-transform:uppercase;}
+  .msg-thread-item{padding:12px 16px;border-bottom:1px solid var(--bg3);cursor:pointer;transition:background .15s;}
+  .msg-thread-item:hover{background:var(--bg2);}
+  .msg-thread-item.active{background:var(--green-bg);border-left:3px solid var(--green);}
+  .msg-thread-name{font-size:13px;font-weight:500;color:var(--ink);}
+  .msg-thread-preview{font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .msg-thread-time{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--muted);margin-top:3px;}
+  .msg-thread-unread{display:inline-block;width:7px;height:7px;background:var(--green);border-radius:50%;margin-left:6px;vertical-align:middle;}
+  .msg-main{display:flex;flex-direction:column;}
+  .msg-main-head{padding:14px 18px;border-bottom:1px solid var(--border);}
+  .msg-main-name{font-size:15px;font-weight:600;color:var(--ink);}
+  .msg-main-role{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);margin-top:2px;}
+  .msg-feed{flex:1;overflow-y:auto;padding:16px 18px;display:flex;flex-direction:column;gap:12px;}
+  .msg-bubble-wrap{display:flex;flex-direction:column;}
+  .msg-bubble-wrap.mine{align-items:flex-end;}
+  .msg-bubble{max-width:70%;padding:10px 14px;border-radius:12px;font-size:13px;line-height:1.5;}
+  .msg-bubble.theirs{background:var(--bg2);color:var(--ink);border-radius:12px 12px 12px 3px;}
+  .msg-bubble.mine{background:var(--ink);color:#e8f4f8;border-radius:12px 12px 3px 12px;}
+  .msg-time{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--muted);margin-top:4px;}
+  .msg-input-row{padding:14px 18px;border-top:1px solid var(--border);display:flex;gap:10px;}
+  .msg-input{flex:1;padding:10px 13px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;font-family:'Inter',sans-serif;font-size:13px;color:var(--ink);resize:none;height:40px;}
+  .msg-input:focus{outline:none;border-color:var(--green);}
+  .msg-send{font-family:'IBM Plex Mono',monospace;font-size:11px;padding:0 16px;background:var(--ink);color:#e8f4f8;border:none;border-radius:7px;cursor:pointer;flex-shrink:0;}
+  .msg-send:hover{opacity:.85;}
+  .msg-empty{flex:1;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px;font-weight:300;}
+  .no-students-msg{padding:32px;text-align:center;color:var(--muted);font-size:14px;font-weight:300;}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .loading-wrap{padding:40px;text-align:center;color:var(--muted);}
+  .section-divider{height:1px;background:var(--border);margin:24px 0;}
+  .students-heading{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:16px;}
+</style>
+</head>
+<body>
+<div id="frame">
+  <div id="topbar">
+    <div class="logo">5X <span>EDUCATION</span></div>
+    <div class="topbar-right">
+      <span class="user-email" id="user-email-el"></span>
+      <button class="btn-signout" id="signout-btn" style="display:none" onclick="signOut()">SIGN OUT</button>
+    </div>
+  </div>
+  <div id="main">
+
+    <!-- AUTH -->
+    <div id="auth-screen" class="auth-wrap">
+      <p class="auth-eyebrow">Mentor Portal</p>
+      <h1 class="auth-title">5X Education</h1>
+      <p class="auth-sub" id="auth-subtitle">Sign in to view your students' progress.</p>
+      <div class="auth-msg" id="auth-msg"></div>
+      <div id="login-form">
+        <div class="field"><label>Email</label><input type="email" id="login-email" placeholder="your@email.com"></div>
+        <div class="field"><label>Password</label><input type="password" id="login-password" placeholder="••••••••"></div>
+        <button class="btn-primary" onclick="signIn()">SIGN IN →</button>
+        <div class="auth-toggle">Don't have an account? <a onclick="showSignup()">Sign up</a></div>
+      </div>
+      <div id="signup-form" style="display:none">
+        <div class="field"><label>Full name</label><input type="text" id="signup-name" placeholder="Your name"></div>
+        <div class="field"><label>Email</label><input type="email" id="signup-email" placeholder="your@email.com"></div>
+        <div class="field"><label>Password</label><input type="password" id="signup-password" placeholder="Min. 6 characters"></div>
+        <button class="btn-primary" onclick="signUp()">CREATE ACCOUNT →</button>
+        <div class="auth-toggle">Already have an account? <a onclick="showLogin()">Sign in</a></div>
+      </div>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div id="dashboard-screen" style="display:none">
+      <div class="dash-header">
+        <p class="dash-eyebrow">Mentor Dashboard</p>
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+          <h2 class="dash-title" id="dash-title">My Cohort</h2>
+          <button onclick="refreshDashboard()" style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.06em;padding:8px 16px;background:var(--ink);color:#e8f4f8;border:none;border-radius:6px;cursor:pointer;" id="refresh-btn">↻ REFRESH</button>
+        </div>
+        <p class="dash-sub" id="dash-sub">Loading your students...</p>
+      </div>
+      <div class="dash-tabs">
+        <div class="dash-tab active" id="tab-cohort" onclick="switchMentorTab('cohort')">MY COHORT</div>
+        <div class="dash-tab" id="tab-messages" onclick="switchMentorTab('messages')">
+          MESSAGES<span class="msg-badge-tab" id="msg-badge-tab">!</span>
+        </div>
+      </div>
+      <div id="pane-cohort">
+
+      <!-- COHORT STATS -->
+      <div class="cohort-bar" id="cohort-bar" style="display:none">
+        <div class="cohort-stat">
+          <div class="cohort-stat-val" id="stat-total">—</div>
+          <div class="cohort-stat-key">Students</div>
+        </div>
+        <div class="cohort-stat">
+          <div class="cohort-stat-val green" id="stat-on-track">—</div>
+          <div class="cohort-stat-key">On Track</div>
+        </div>
+        <div class="cohort-stat">
+          <div class="cohort-stat-val amber" id="stat-attention">—</div>
+          <div class="cohort-stat-key">Need Attention</div>
+        </div>
+        <div class="cohort-stat">
+          <div class="cohort-stat-val red" id="stat-at-risk">—</div>
+          <div class="cohort-stat-key">At Risk</div>
+        </div>
+      </div>
+
+      <!-- AI COHORT OVERVIEW -->
+      <div class="ai-overview-wrap" id="ai-overview-wrap" style="display:none">
+        <div class="ai-overview-label">AI Cohort Overview</div>
+        <div class="ai-overview-text ai-overview-loading" id="ai-overview-text">
+          <span class="spinner"></span>&nbsp; Generating cohort summary...
+        </div>
+      </div>
+
+      <div class="section-divider" id="section-divider" style="display:none"></div>
+      <p class="students-heading" id="students-heading" style="display:none">Individual Students</p>
+
+      <div id="students-list"><div class="loading-wrap"><div class="spinner"></div></div></div>
+      </div><!-- /pane-cohort -->
+
+      <!-- MESSAGES PANE -->
+      <div id="pane-messages" style="display:none">
+        <div id="messages-container"><div class="loading-wrap"><div class="spinner"></div></div></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://ayecmyknwnzkxnjsepey.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF5ZWNteWtud256a3huanNlcGV5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1Njc0MjksImV4cCI6MjA5MzE0MzQyOX0.E-f1bQZVLd0v39PKk1_2cA4s0R40hVHsgOiFIQnyg44';
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// AI feedback via secure proxy
+const MODEL = 'claude-sonnet-4-5';
+
+const SUBJECT_LABELS = { enzymes: 'Biology · Enzymes' };
+const TOTAL_CONCEPTS = { enzymes: 5 };
+const CONCEPT_NAMES = {
+  enzymes: ['Enzyme Basics','Enzyme Function','Rate of Enzyme Activity','Experiments on Enzyme Activity','Enzymes in Industry']
+};
+
+let _currentMentorId = null;
+let _allStudents = [];
+
+// ── AUTH ──────────────────────────────────────────────────────────────────────
+db.auth.onAuthStateChange(async (event, session) => {
+  if (session) {
+    if (event !== 'SIGNED_IN' && event !== 'INITIAL_SESSION') return;
+    try {
+      const res = await fetch(
+        SUPABASE_URL + '/rest/v1/mentors?id=eq.' + session.user.id + '&select=id',
+        {
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': 'Bearer ' + session.access_token,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      const rows = await res.json();
+      if (!rows || rows.length === 0) {
+        await db.auth.signOut();
+        const el = document.getElementById('auth-msg');
+        el.textContent = 'Access denied. This portal is for mentors only.';
+        el.className = 'auth-msg error'; el.style.display = 'block';
+        return;
+      }
+      document.getElementById('auth-screen').style.display = 'none';
+      document.getElementById('dashboard-screen').style.display = 'block';
+      document.getElementById('user-email-el').textContent = session.user.email;
+      document.getElementById('signout-btn').style.display = 'block';
+      _currentMentorId = session.user.id;
+      loadDashboard(session.user.id);
+    } catch(e) {
+      console.error('Auth error:', e);
+    }
+  } else {
+    document.getElementById('auth-screen').style.display = 'block';
+    document.getElementById('dashboard-screen').style.display = 'none';
+    document.getElementById('signout-btn').style.display = 'none';
+    document.getElementById('user-email-el').textContent = '';
+    _currentMentorId = null;
+  }
+});
+
+function showMsg(msg, type) {
+  const el = document.getElementById('auth-msg');
+  el.textContent = msg; el.className = `auth-msg ${type}`; el.style.display = 'block';
+}
+function showSignup() {
+  document.getElementById('login-form').style.display = 'none';
+  document.getElementById('signup-form').style.display = 'block';
+  document.getElementById('auth-subtitle').textContent = 'Create a mentor account.';
+}
+function showLogin() {
+  document.getElementById('signup-form').style.display = 'none';
+  document.getElementById('login-form').style.display = 'block';
+  document.getElementById('auth-subtitle').textContent = "Sign in to view your students' progress.";
+}
+
+async function signIn() {
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  if (!email || !password) return showMsg('Please enter your email and password.', 'error');
+  const { error } = await db.auth.signInWithPassword({ email, password });
+  if (error) showMsg(error.message, 'error');
+}
+
+async function signUp() {
+  const name = document.getElementById('signup-name').value.trim();
+  const email = document.getElementById('signup-email').value.trim();
+  const password = document.getElementById('signup-password').value;
+  if (!name || !email || !password) return showMsg('Please fill in all fields.', 'error');
+  if (password.length < 6) return showMsg('Password must be at least 6 characters.', 'error');
+  const { data, error } = await db.auth.signUp({ email, password });
+  if (error) return showMsg(error.message, 'error');
+  if (data.user) {
+    await db.from('mentors').upsert({ id: data.user.id, email, full_name: name });
+    showMsg('Account created! You can now sign in.', 'success');
+    showLogin();
+  }
+}
+
+async function signOut() {
+  await db.auth.signOut();
+}
+
+// ── DASHBOARD ─────────────────────────────────────────────────────────────────
+function refreshDashboard() {
+  const btn = document.getElementById('refresh-btn');
+  if (btn) { btn.textContent = '↻ REFRESHING...'; btn.disabled = true; }
+  loadDashboard(_currentMentorId).then(() => {
+    if (btn) { btn.textContent = '↻ REFRESH'; btn.disabled = false; }
+  });
+}
+
+// Auto-refresh every 60 seconds
+setInterval(() => {
+  if (_currentMentorId) loadDashboard(_currentMentorId);
+}, 60000);
+
+async function loadDashboard(mentorId) {
+  const list = document.getElementById('students-list');
+  list.innerHTML = '<div class="loading-wrap"><div class="spinner"></div></div>';
+  document.getElementById('cohort-bar').style.display = 'none';
+  document.getElementById('ai-overview-wrap').style.display = 'none';
+  document.getElementById('section-divider').style.display = 'none';
+  document.getElementById('students-heading').style.display = 'none';
+
+  const { data: students, error } = await db
+    .from('students')
+    .select('id, full_name, email')
+    .eq('mentor_id', mentorId);
+
+  if (error || !students || students.length === 0) {
+    document.getElementById('dash-sub').textContent = 'No students assigned to your account yet.';
+    list.innerHTML = `<div class="no-students">
+      No students have been linked to your mentor account yet.<br><br>
+      Students are assigned to mentors by an administrator. Contact your admin to link students to <strong>${document.getElementById('user-email-el').textContent}</strong>.
+    </div>`;
+    return;
+  }
+
+  _allStudents = students;
+  document.getElementById('dash-sub').textContent = `${students.length} student${students.length !== 1 ? 's' : ''} in your cohort`;
+
+  // Load all progress in parallel
+  const progressByStudent = {};
+  await Promise.all(students.map(async (s) => {
+    const { data } = await db.from('progress').select('*').eq('student_id', s.id);
+    progressByStudent[s.id] = data || [];
+  }));
+
+  // Cohort stats
+  updateCohortStats(students, progressByStudent);
+
+  // AI overview — auto-generated on login
+  generateCohortOverview(students, progressByStudent);
+
+  // Individual student cards
+  list.innerHTML = '';
+  for (const student of students) {
+    const card = buildStudentCard(student, progressByStudent[student.id] || []);
+    list.appendChild(card);
+  }
+}
+
+// ── COHORT STATS ──────────────────────────────────────────────────────────────
+function updateCohortStats(students, progressByStudent) {
+  let onTrack = 0, attention = 0, atRisk = 0;
+  for (const s of students) {
+    const st = overallStatus(progressByStudent[s.id] || []);
+    if (st.key === 'green') onTrack++;
+    else if (st.key === 'amber') attention++;
+    else atRisk++;
+  }
+  document.getElementById('stat-total').textContent = students.length;
+  document.getElementById('stat-on-track').textContent = onTrack;
+  document.getElementById('stat-attention').textContent = attention;
+  document.getElementById('stat-at-risk').textContent = atRisk;
+  document.getElementById('cohort-bar').style.display = 'grid';
+  document.getElementById('section-divider').style.display = 'block';
+  document.getElementById('students-heading').style.display = 'block';
+}
+
+// ── AI COHORT OVERVIEW ────────────────────────────────────────────────────────
+async function generateCohortOverview(students, progressByStudent) {
+  const wrap = document.getElementById('ai-overview-wrap');
+  const el = document.getElementById('ai-overview-text');
+  wrap.style.display = 'block';
+
+  // Build a compact summary of each student for the prompt
+  const studentSummaries = students.map(s => {
+    const rows = progressByStudent[s.id] || [];
+    const allResults = rows.flatMap(r => r.concept_results || []);
+    const completed = allResults.length;
+    const total = 5;
+    const flaggedCount = allResults.filter(r => r.flaggedTags && r.flaggedTags.length > 0).length;
+
+    // Per-session delta: s1 vs final
+    const withDelta = allResults.filter(r => r.s1Total > 0 && r.finalTotal > 0);
+    const avgDelta = withDelta.length > 0
+      ? Math.round(withDelta.reduce((sum, r) =>
+          sum + ((r.finalCorrect / r.finalTotal) - (r.s1Correct / r.s1Total)) * 100, 0) / withDelta.length)
+      : null;
+
+    const avgFinal = allResults.filter(r => r.finalTotal > 0).length > 0
+      ? Math.round(allResults.filter(r => r.finalTotal > 0)
+          .reduce((sum, r) => sum + (r.finalCorrect / r.finalTotal * 100), 0) /
+          allResults.filter(r => r.finalTotal > 0).length)
+      : null;
+
+    return `${s.full_name || s.email}: ${completed}/${total} concepts, avg score ${avgFinal !== null ? avgFinal + '%' : 'n/a'}, session delta ${avgDelta !== null ? (avgDelta >= 0 ? '+' : '') + avgDelta + '%' : 'n/a'}, flagged concepts ${flaggedCount}`;
+  }).join('\n');
+
+  const prompt = `You are a mentor AI assistant. Summarise the state of your student cohort for the mentor in 3-4 concise sentences.
+
+Cohort data:
+${studentSummaries}
+
+Be specific and analytical. Highlight patterns across the cohort: who is improving, who needs intervention, any common weak areas. Address the mentor directly. Do not use bullet points. Be direct and professional.`;
+
+  try {
+    const res = await fetch('/.netlify/functions/mark', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: MODEL,
+        max_tokens: 200,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    const data = await res.json();
+    const text = data.content?.[0]?.text?.trim() || '';
+    if (text) {
+      el.className = 'ai-overview-text';
+      el.textContent = text;
+    } else {
+      wrap.style.display = 'none';
+    }
+  } catch(e) {
+    wrap.style.display = 'none';
+  }
+}
+
+// ── STUDENT CARD ──────────────────────────────────────────────────────────────
+function overallStatus(progressRows) {
+  if (!progressRows || progressRows.length === 0)
+    return { key:'amber', dotClass:'tl-amber', label:'NOT STARTED', color:'#d4920a' };
+
+  let totalConcepts = 0, completedConcepts = 0, flaggedCount = 0;
+  for (const p of progressRows) {
+    const total = TOTAL_CONCEPTS[p.subject] || 5;
+    const results = p.concept_results || [];
+    totalConcepts += total;
+    completedConcepts += results.length;
+    results.forEach(r => { if (r.flaggedTags && r.flaggedTags.length > 0) flaggedCount++; });
+  }
+  const pct = totalConcepts > 0 ? completedConcepts / totalConcepts : 0;
+  if (pct >= 0.8 && flaggedCount === 0) return { key:'green', dotClass:'tl-green', label:'ON TRACK', color:'var(--green)' };
+  if (pct >= 0.4 || flaggedCount <= 2) return { key:'amber', dotClass:'tl-amber', label:'NEEDS ATTENTION', color:'#d4920a' };
+  return { key:'red', dotClass:'tl-red', label:'AT RISK', color:'var(--red)' };
+}
+
+function gradeColor(pct) {
+  if (pct >= 80) return 'green'; if (pct >= 60) return 'amber'; return 'red';
+}
+
+function deltaClass(delta) {
+  if (delta > 0) return 'delta-positive';
+  if (delta < 0) return 'delta-negative';
+  return 'delta-neutral';
+}
+
+function deltaLabel(delta) {
+  if (delta === null) return '—';
+  return (delta >= 0 ? '+' : '') + delta + '%';
+}
+
+function buildStudentCard(student, progressRows) {
+  const card = document.createElement('div');
+  card.className = 'student-card';
+
+  const status = overallStatus(progressRows);
+
+  card.innerHTML = `
+    <div class="student-card-header">
+      <div>
+        <div class="student-name">${student.full_name || 'Student'}</div>
+        <div class="student-email-el">${student.email}</div>
+      </div>
+      <div class="traffic-light">
+        <div class="tl-dot ${status.dotClass}"></div>
+        <span class="tl-label" style="color:${status.color}">${status.label}</span>
+      </div>
+    </div>
+    <div class="student-card-body" id="body-${student.id}">
+      <div class="loading-wrap"><div class="spinner"></div></div>
+    </div>`;
+
+  setTimeout(async () => {
+    const body = document.getElementById(`body-${student.id}`);
+    body.innerHTML = '';
+
+    const subjects = progressRows && progressRows.length > 0
+      ? progressRows
+      : [{ subject: 'enzymes', concept_results: [], student_id: student.id }];
+
+    for (const prog of subjects) {
+      const section = buildSubjectSection(prog);
+      body.appendChild(section);
+    }
+  }, 0);
+
+  return card;
+}
+
+function buildSubjectSection(prog) {
+  const section = document.createElement('div');
+  section.className = 'subject-row';
+
+  const results = prog.concept_results || [];
+  const total = TOTAL_CONCEPTS[prog.subject] || 5;
+  const completed = results.length;
+  const pct = total > 0 ? Math.round(completed / total * 100) : 0;
+  const conceptNames = CONCEPT_NAMES[prog.subject] || [];
+
+  // Averages
+  const withFinal = results.filter(r => r.finalTotal > 0);
+  const avgFinal = withFinal.length > 0
+    ? Math.round(withFinal.reduce((sum, r) => sum + (r.finalCorrect / r.finalTotal * 100), 0) / withFinal.length)
+    : null;
+
+  // Per-session delta: s1 (diagnostic before) vs final (after retests)
+  const withDelta = results.filter(r => r.s1Total > 0 && r.finalTotal > 0);
+  const avgDelta = withDelta.length > 0
+    ? Math.round(withDelta.reduce((sum, r) =>
+        sum + ((r.finalCorrect / r.finalTotal) - (r.s1Correct / r.s1Total)) * 100, 0) / withDelta.length)
+    : null;
+
+  // Flagged concepts
+  const flaggedConcepts = results
+    .map((r, i) => r.flaggedTags && r.flaggedTags.length > 0 ? (conceptNames[i] || `Concept ${i + 1}`) : null)
+    .filter(Boolean);
+
+  // Exam grade
+  const examGrade = prog.exam_grade || null;
+  const examScore = prog.exam_score !== null && prog.exam_score !== undefined ? prog.exam_score : null;
+  const examPct = examScore !== null ? Math.round(examScore / 30 * 100) : null;
+
+  // Build concept rows
+  const conceptRows = conceptNames.map((name, i) => {
+    const r = results[i];
+    if (!r) return `<tr>
+      <td class="concept-name-cell">${name}</td>
+      <td class="score-cell">—</td>
+      <td class="score-cell">—</td>
+      <td class="score-cell">—</td>
+      <td><span class="pending-badge">NOT STARTED</span></td>
+    </tr>`;
+
+    const s1Pct = r.s1Total > 0 ? Math.round(r.s1Correct / r.s1Total * 100) : null;
+    const finalPct = r.finalTotal > 0 ? Math.round(r.finalCorrect / r.finalTotal * 100) : null;
+    const delta = s1Pct !== null && finalPct !== null ? finalPct - s1Pct : null;
+    const flagged = r.flaggedTags && r.flaggedTags.length > 0;
+
+    return `<tr>
+      <td class="concept-name-cell">${name}</td>
+      <td class="score-cell" style="color:var(--muted)">${s1Pct !== null ? s1Pct + '%' : '—'}</td>
+      <td class="score-cell" style="color:${finalPct !== null ? (finalPct >= 80 ? 'var(--green)' : finalPct >= 60 ? 'var(--amber)' : 'var(--red)') : 'var(--muted)'}">${finalPct !== null ? finalPct + '%' : '—'}</td>
+      <td class="score-cell ${delta !== null ? deltaClass(delta) : ''}">${deltaLabel(delta)}</td>
+      <td>${flagged ? '<span class="flag-badge">⚑ FLAGGED</span>' : '<span class="ok-badge">✓ OK</span>'}</td>
+    </tr>`;
+  }).join('');
+
+  section.innerHTML = `
+    <div class="subject-name">${SUBJECT_LABELS[prog.subject] || prog.subject}</div>
+    <div class="subject-stats">
+      <div class="subject-stat">
+        <div class="subject-stat-val ${pct >= 80 ? 'green' : pct >= 40 ? 'amber' : 'red'}">${completed}/${total}</div>
+        <div class="subject-stat-key">Concepts Done</div>
+      </div>
+      <div class="subject-stat">
+        <div class="subject-stat-val ${avgFinal !== null ? gradeColor(avgFinal) : ''}">${avgFinal !== null ? avgFinal + '%' : '—'}</div>
+        <div class="subject-stat-key">Avg Final Score</div>
+      </div>
+      <div class="subject-stat">
+        <div class="subject-stat-val ${avgDelta !== null ? deltaClass(avgDelta) : ''}">${deltaLabel(avgDelta)}</div>
+        <div class="subject-stat-key">Avg Session Delta</div>
+      </div>
+      <div class="subject-stat">
+        <div class="subject-stat-val ${flaggedConcepts.length === 0 ? 'green' : flaggedConcepts.length <= 2 ? 'amber' : 'red'}">${flaggedConcepts.length}</div>
+        <div class="subject-stat-key">Flagged Concepts</div>
+      </div>
+      <div class="subject-stat">
+        <div class="subject-stat-val ${examGrade ? gradeColor(examPct) : ''}">${examGrade || '—'}</div>
+        <div class="subject-stat-key">Exam Grade</div>
+      </div>
+    </div>
+    <div class="prog-wrap">
+      <div class="prog-track"><div class="prog-fill" style="width:${pct}%"></div></div>
+      <span class="prog-label">${pct}%</span>
+    </div>
+    <table class="concept-table">
+      <thead>
+        <tr>
+          <th>Concept</th>
+          <th>Diagnostic</th>
+          <th>Final Score</th>
+          <th>Session Delta</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>${conceptRows}</tbody>
+    </table>
+    <div class="ai-summary-loading" id="ai-mentor-${prog.student_id}-${prog.subject}">Generating mentor insight...</div>`;
+
+  // Generate per-student AI summary
+  setTimeout(() => generateStudentSummary(prog, completed, total, avgFinal, avgDelta, flaggedConcepts, section), 150);
+
+  return section;
+}
+
+// ── AI STUDENT SUMMARY ────────────────────────────────────────────────────────
+async function generateStudentSummary(prog, completed, total, avgFinal, avgDelta, flagged, section) {
+  const el = section.querySelector(`[id^="ai-mentor-"]`);
+  if (!el) return;
+
+  const prompt = `You are giving a mentor a brief professional assessment of one student's progress in 2 sentences max.
+
+Subject: ${SUBJECT_LABELS[prog.subject] || prog.subject}
+Concepts completed: ${completed} of ${total}
+Average final score: ${avgFinal !== null ? avgFinal + '%' : 'not yet assessed'}
+Average session delta (improvement per session): ${avgDelta !== null ? (avgDelta >= 0 ? '+' : '') + avgDelta + '%' : 'insufficient data'}
+Flagged concepts needing review: ${flagged.length > 0 ? flagged.join(', ') : 'none'}
+
+Write 2 sentences addressed to the mentor. Sentence 1: current state. Sentence 2: specific recommended action. Be direct, analytical and actionable. No fluff.`;
+
+  try {
+    const res = await fetch('/.netlify/functions/mark', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: MODEL,
+        max_tokens: 100,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    const data = await res.json();
+    const text = data.content?.[0]?.text?.trim() || '';
+    if (text && el) {
+      el.className = 'ai-summary';
+      el.textContent = text;
+    } else if (el) {
+      el.style.display = 'none';
+    }
+  } catch(e) {
+    if (el) el.style.display = 'none';
+  }
+}
+// ── TAB SWITCHING ─────────────────────────────────────────────────────────────
+let _mentorMsgPoll = null;
+
+function switchMentorTab(tab) {
+  document.getElementById('pane-cohort').style.display = tab === 'cohort' ? 'block' : 'none';
+  document.getElementById('pane-messages').style.display = tab === 'messages' ? 'block' : 'none';
+  document.getElementById('tab-cohort').className = 'dash-tab' + (tab === 'cohort' ? ' active' : '');
+  document.getElementById('tab-messages').className = 'dash-tab' + (tab === 'messages' ? ' active' : '');
+  document.getElementById('refresh-btn').style.display = tab === 'cohort' ? 'block' : 'none';
+  if (tab === 'messages') {
+    document.getElementById('msg-badge-tab').style.display = 'none';
+    loadMentorMessages();
+  }
+}
+
+// ── MENTOR MESSAGING ──────────────────────────────────────────────────────────
+let _activeStudentId = null;
+let _mentorMessages = [];
+let _mentorStudents = [];
+
+async function loadMentorMessages() {
+  const container = document.getElementById('messages-container');
+  _mentorStudents = _allStudents || [];
+
+  if (!_mentorStudents.length) {
+    container.innerHTML = '<div class="no-students-msg">No students assigned yet.</div>';
+    return;
+  }
+
+  // Build thread list + open first student by default
+  renderThreadList();
+  if (_mentorStudents.length > 0) {
+    openThread(_mentorStudents[0].id);
+  }
+
+  // Start polling
+  if (_mentorMsgPoll) clearInterval(_mentorMsgPoll);
+  _mentorMsgPoll = setInterval(pollMentorMessages, 15000);
+}
+
+function renderThreadList() {
+  const list = _mentorStudents.map((s, i) => `
+    <div class="msg-thread-item ${i === 0 ? 'active' : ''}" id="thread-${s.id}" onclick="openThread('${s.id}')">
+      <div class="msg-thread-name">${s.full_name || s.email}</div>
+      <div class="msg-thread-preview" id="thread-preview-${s.id}">Tap to view messages</div>
+      <div class="msg-thread-time" id="thread-time-${s.id}">—</div>
+    </div>`).join('');
+
+  document.getElementById('messages-container').innerHTML = `
+    <div class="messages-layout">
+      <div class="msg-sidebar">
+        <div class="msg-sidebar-head"><div class="msg-sidebar-title">Students</div></div>
+        ${list}
+      </div>
+      <div class="msg-main" id="msg-main">
+        <div class="msg-empty">Select a student to view messages</div>
+      </div>
+    </div>`;
+}
+
+async function openThread(studentId) {
+  _activeStudentId = studentId;
+  const student = _mentorStudents.find(s => s.id === studentId);
+  if (!student) return;
+
+  // Highlight active thread
+  document.querySelectorAll('.msg-thread-item').forEach(el => el.classList.remove('active'));
+  const threadEl = document.getElementById(`thread-${studentId}`);
+  if (threadEl) threadEl.classList.add('active');
+
+  // Render chat area
+  const main = document.getElementById('msg-main');
+  main.innerHTML = `
+    <div class="msg-main-head">
+      <div class="msg-main-name">${student.full_name || student.email}</div>
+      <div class="msg-main-role">${student.email}</div>
+    </div>
+    <div class="msg-feed" id="msg-feed"><div class="loading-wrap"><div class="spinner"></div></div></div>
+    <div class="msg-input-row">
+      <textarea class="msg-input" id="msg-input" placeholder="Message ${student.full_name || 'student'}…"
+        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMentorMessage();}"></textarea>
+      <button class="msg-send" onclick="sendMentorMessage()">SEND</button>
+    </div>`;
+
+  fetchThreadMessages(studentId);
+}
+
+async function fetchThreadMessages(studentId) {
+  if (!_currentMentorId) return;
+  const feed = document.getElementById('msg-feed');
+  if (!feed) return;
+
+  const { data: msgs } = await db.from('messages')
+    .select('*')
+    .or(`and(sender_id.eq.${_currentMentorId},receiver_id.eq.${studentId}),and(sender_id.eq.${studentId},receiver_id.eq.${_currentMentorId})`)
+    .order('created_at', { ascending: true });
+
+  _mentorMessages = msgs || [];
+
+  if (!_mentorMessages.length) {
+    feed.innerHTML = '<div class="msg-empty">No messages yet. Send the first one!</div>';
+    return;
+  }
+
+  feed.innerHTML = _mentorMessages.map(m => {
+    const mine = m.sender_id === _currentMentorId;
+    const time = new Date(m.created_at).toLocaleTimeString('en-IE', { hour: '2-digit', minute: '2-digit' });
+    const date = new Date(m.created_at).toLocaleDateString('en-IE', { day: 'numeric', month: 'short' });
+    return `<div class="msg-bubble-wrap ${mine ? 'mine' : ''}">
+      <div class="msg-bubble ${mine ? 'mine' : 'theirs'}">${escHtml(m.content)}</div>
+      <div class="msg-time">${date} · ${time}</div>
+    </div>`;
+  }).join('');
+
+  feed.scrollTop = feed.scrollHeight;
+
+  // Update thread preview
+  const last = _mentorMessages[_mentorMessages.length - 1];
+  const preview = document.getElementById(`thread-preview-${studentId}`);
+  const timeEl = document.getElementById(`thread-time-${studentId}`);
+  if (preview) preview.textContent = last.content.substring(0, 40) + (last.content.length > 40 ? '…' : '');
+  if (timeEl) timeEl.textContent = new Date(last.created_at).toLocaleDateString('en-IE', { day: 'numeric', month: 'short' });
+}
+
+async function sendMentorMessage() {
+  const input = document.getElementById('msg-input');
+  if (!input || !_activeStudentId || !_currentMentorId) return;
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  await db.from('messages').insert({
+    sender_id: _currentMentorId,
+    receiver_id: _activeStudentId,
+    content: text,
+    read: false,
+  });
+  fetchThreadMessages(_activeStudentId);
+}
+
+async function pollMentorMessages() {
+  if (_activeStudentId) {
+    fetchThreadMessages(_activeStudentId);
+  }
+  // Check for unread across all students
+  if (!_currentMentorId) return;
+  const { data } = await db.from('messages')
+    .select('id')
+    .eq('receiver_id', _currentMentorId)
+    .eq('read', false)
+    .limit(1);
+  const badge = document.getElementById('msg-badge-tab');
+  if (badge) badge.style.display = (data && data.length > 0) ? 'inline-block' : 'none';
+}
+
+function escHtml(str) {
+  return (str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+</body>
+</html>
